@@ -175,3 +175,21 @@ if __name__ == "__main__":
     # Cambia retrain_interval a 5 minutos (0.0833 horas)
     bot = UnifiedCryptoBot(api_key, secret_key, discord_webhook_url, retrain_interval=0.0833)
     asyncio.run(bot.run())
+
+if __name__ == "__main__":
+    import os
+    import time
+
+    # Simular un puerto para Render
+    port = os.environ.get('PORT', 8000)  # Render asigna un puerto automáticamente
+    print(f"Escuchando en el puerto {port}, aunque no es necesario para este bot.")
+
+    # Ejecutar el bot
+    bot = UnifiedCryptoBot(api_key, secret_key, discord_webhook_url)
+    try:
+        asyncio.run(bot.run())
+    except KeyboardInterrupt:
+        print("Bot detenido manualmente.")
+    except Exception as e:
+        print(f"Error crítico: {e}")
+        time.sleep(5)
