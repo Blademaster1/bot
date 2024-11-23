@@ -1,0 +1,8 @@
+ccxt
+pandas
+numpy
+scikit-learn
+tensorflow
+python-dotenv
+requests
+ta
