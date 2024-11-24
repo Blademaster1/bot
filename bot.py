@@ -8,17 +8,19 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Conv1D, Flatten
+from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-from dotenv import load_dotenv
 import asyncio
 import requests
 import ta
-from concurrent.futures import ThreadPoolExecutor
+
+# Claves API y webhook definidas directamente en el código
+BINANCE_API_KEY = "tu_clave_api"
+BINANCE_SECRET_KEY = "tu_clave_secreta"
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/ID/TOKEN"
 
 # Configuración inicial
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-load_dotenv(dotenv_path='C:\\Users\\hasna\\Desktop\\bot\\api.env')
 
 # Configuración del logger
 logging.basicConfig(
@@ -28,13 +30,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger()
 
+
 class UnifiedCryptoBot:
-    def __init__(self, api_key, secret_key, discord_webhook_url, timeframe="1h", retrain_interval=6, top_n=50):
+    def __init__(self, api_key, secret_key, discord_webhook_url, timeframe="1h", retrain_interval=5, top_n=50):
         self.api_key = api_key
         self.secret_key = secret_key
         self.discord_webhook_url = discord_webhook_url
         self.timeframe = timeframe
-        self.retrain_interval = retrain_interval
+        self.retrain_interval = retrain_interval  # Intervalo en minutos
         self.top_n = top_n
         self.scaler = MinMaxScaler(feature_range=(0, 1))
         self.positions = {}
@@ -75,10 +78,14 @@ class UnifiedCryptoBot:
 
     def add_advanced_indicators(self, df):
         """Añade indicadores técnicos."""
-        df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
-        df["ema_short"] = ta.trend.EMAIndicator(df["close"], window=20).ema_indicator()
-        df["ema_long"] = ta.trend.EMAIndicator(df["close"], window=50).ema_indicator()
-        return df.dropna()
+        try:
+            df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
+            df["ema_short"] = ta.trend.EMAIndicator(df["close"], window=20).ema_indicator()
+            df["ema_long"] = ta.trend.EMAIndicator(df["close"], window=50).ema_indicator()
+            return df.dropna()
+        except Exception as e:
+            logger.error(f"Error al añadir indicadores técnicos: {e}")
+            return pd.DataFrame()
 
     def create_lstm_model(self, input_shape):
         """Crea un modelo LSTM."""
@@ -95,12 +102,16 @@ class UnifiedCryptoBot:
 
     def prepare_data_for_lstm(self, df):
         """Prepara datos para LSTM."""
-        df_scaled = self.scaler.fit_transform(df[["close", "rsi", "ema_short", "ema_long"]])
-        X, y = [], []
-        for i in range(60, len(df_scaled)):
-            X.append(df_scaled[i-60:i])
-            y.append(df_scaled[i, 0])
-        return np.array(X), np.array(y)
+        try:
+            df_scaled = self.scaler.fit_transform(df[["close", "rsi", "ema_short", "ema_long"]])
+            X, y = [], []
+            for i in range(60, len(df_scaled)):
+                X.append(df_scaled[i-60:i])
+                y.append(df_scaled[i, 0])
+            return np.array(X), np.array(y)
+        except Exception as e:
+            logger.error(f"Error al preparar los datos: {e}")
+            return None, None
 
     async def train_and_trade(self, symbol):
         """Entrena modelo y realiza operaciones."""
@@ -113,7 +124,7 @@ class UnifiedCryptoBot:
             df = self.add_advanced_indicators(df)
             X, y = self.prepare_data_for_lstm(df)
 
-            if len(X) == 0 or len(y) == 0:
+            if X is None or y is None or len(X) == 0 or len(y) == 0:
                 logger.warning(f"No se pudieron preparar datos para {symbol}")
                 return
 
@@ -161,35 +172,13 @@ class UnifiedCryptoBot:
                 top_cryptos = [symbol for symbol in self.exchange.fetch_tickers().keys() if "/USDT" in symbol][:self.top_n]
                 tasks = [self.train_and_trade(symbol) for symbol in top_cryptos]
                 await asyncio.gather(*tasks)
-                logger.info(f"Esperando {self.retrain_interval * 60:.2f} minutos para el próximo ciclo...")
-                await asyncio.sleep(self.retrain_interval * 3600)
+                logger.info(f"Esperando {self.retrain_interval:.2f} minutos para el próximo ciclo...")
+                await asyncio.sleep(self.retrain_interval * 60)  # Convertido a minutos
             except Exception as e:
                 logger.error(f"Error crítico: {e}")
                 break
 
-if __name__ == "__main__":
-    api_key = os.getenv("BINANCE_API_KEY")
-    secret_key = os.getenv("BINANCE_SECRET_KEY")
-    discord_webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
 
-    # Cambia retrain_interval a 5 minutos (0.0833 horas)
-    bot = UnifiedCryptoBot(api_key, secret_key, discord_webhook_url, retrain_interval=0.0833)
+if __name__ == "__main__":
+    bot = UnifiedCryptoBot(BINANCE_API_KEY, BINANCE_SECRET_KEY, DISCORD_WEBHOOK_URL, retrain_interval=5)
     asyncio.run(bot.run())
-
-if __name__ == "__main__":
-    import os
-    import time
-
-    # Simular un puerto para Render
-    port = os.environ.get('PORT', 8000)  # Render asigna un puerto automáticamente
-    print(f"Escuchando en el puerto {port}, aunque no es necesario para este bot.")
-
-    # Ejecutar el bot
-    bot = UnifiedCryptoBot(api_key, secret_key, discord_webhook_url)
-    try:
-        asyncio.run(bot.run())
-    except KeyboardInterrupt:
-        print("Bot detenido manualmente.")
-    except Exception as e:
-        print(f"Error crítico: {e}")
-        time.sleep(5)
