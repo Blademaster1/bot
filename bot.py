@@ -15,10 +15,9 @@ import requests
 import ta
 
 # Claves API y webhook definidas directamente en el código
-BINANCE_API_KEY = "tu_clave_api"
-BINANCE_SECRET_KEY = "tu_clave_secreta"
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/ID/TOKEN"
-
+BINANCE_API_KEY=9PuqUhA7bZckrpc4RGmgeYTj8diMNRN3ZwAEE7rBrxMqwSNe2LNHjtSPZmEPJcaV
+BINANCE_SECRET_KEY=4QqhDgSWfchc0HiUozNQATpfxD0VQCI563Pfm5VkppZFABGhvV3IJUlpYR3pv3T6
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/1309913743294988300/Cs3C_O8-qoT3geWT02FTwH19Yxt1lC3siyFAavCWtJ_9QfzmR5kRl4qnrlSplj-Ca5-t
 # Configuración inicial
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
